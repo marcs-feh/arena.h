@@ -1,3 +1,4 @@
 *.exe
 *.bin
 *.o
+compile_flags.txt

@@ -1,4 +1,5 @@
 -I.
 -L.
 -std=c11
+-DARENA_IMPLEMENTATION
 
