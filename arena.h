@@ -14,7 +14,7 @@
 #include <stdalign.h>
 #include <stdbool.h>
 
-#include <stdlib.h> /* Remove if not using malloc() and free()  in the configuration */
+#include <stdlib.h> /* Remove if not using malloc() and free() in the configuration */
 
 /// Configuration //////////////////////////////////////////////////////////////
 // This defines how to ask for x bytes of memory
@@ -31,10 +31,10 @@
 
 // Helper macro, you can safely remove it
 #define arena_alloc(ar_ptr, T, n) \
-	arena_alloc_aligned((ar_ptr), (sizeof(T) * (n)), alignof(T))
+	arena_alloc_raw((ar_ptr), (sizeof(T) * (n)), alignof(T))
 
 /// Declarations ///////////////////////////////////////////////////////////////
-typedef uint8_t byte;
+#define byte unsigned char
 
 struct ArenaBlock {
 	byte* data;
@@ -51,7 +51,7 @@ struct ArenaAllocator {
 
 struct ArenaAllocator arena_create(size_t capacity);
 void arena_destroy(struct ArenaAllocator* ar);
-void* arena_alloc_aligned(struct ArenaAllocator* ar, size_t nbytes, size_t alignment);
+void* arena_alloc_raw(struct ArenaAllocator* ar, size_t nbytes, size_t alignment);
 void arena_reset(struct ArenaAllocator* ar);
 size_t arena_total_capacity(struct ArenaAllocator const* ar);
 
@@ -140,7 +140,7 @@ arena_block_get_required(uintptr_t cur, size_t nbytes, size_t alignment){
 }
 
 static void*
-arena_block_alloc_aligned(struct ArenaBlock* blk, size_t nbytes, size_t alignment){
+arena_block_alloc_raw(struct ArenaBlock* blk, size_t nbytes, size_t alignment){
 	uintptr_t base = (uintptr_t)blk->data;
 	uintptr_t cur = base + blk->offset;
 
@@ -156,12 +156,12 @@ arena_block_alloc_aligned(struct ArenaBlock* blk, size_t nbytes, size_t alignmen
 }
 
 void*
-arena_alloc_aligned(struct ArenaAllocator* ar, size_t nbytes, size_t alignment){
+arena_alloc_raw(struct ArenaAllocator* ar, size_t nbytes, size_t alignment){
 	if(nbytes == 0){ return NULL; }
 	struct ArenaBlock* blk = ar->head;
 	
 	while(blk != NULL){
-		void* p = arena_block_alloc_aligned(blk, nbytes, alignment);
+		void* p = arena_block_alloc_raw(blk, nbytes, alignment);
 		if(p != NULL){ return p; }
 		blk = blk->next;
 	}
@@ -170,7 +170,7 @@ arena_alloc_aligned(struct ArenaAllocator* ar, size_t nbytes, size_t alignment){
 	size_t new_cap = align_forward_size(nbytes, alignment);
 	bool ok = arena_push_block(ar, new_cap * ARENA_DEF_ALIGN);
 	if(ok){
-		return arena_alloc_aligned(ar, nbytes, alignment);
+		return arena_alloc_raw(ar, nbytes, alignment);
 	} else {
 		return NULL;
 	}
@@ -218,8 +218,11 @@ size_t arena_total_capacity(struct ArenaAllocator const* ar){
 	return total;
 }
 
+#undef byte
+
 #endif /* ARENA_IMPLEMENTATION */
 #endif /* Include guard */
+
 
 // Copyright 2023 marcs-feh
 // 

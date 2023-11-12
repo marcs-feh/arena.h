@@ -15,13 +15,13 @@ int test_arena(){
 		numbers[49-1] = 4;
 		// printf("Base: %p Nums: %p Max: %p\n", ar.head->data, numbers, ar.head->data + ar.head->capacity);
 
-		int* num0 = arena_alloc_aligned(&ar, sizeof(int), alignof(int));
+		int* num0 = arena_alloc_raw(&ar, sizeof(int), alignof(int));
 		Tp(num0 != NULL);
 		*num0 = 69;
 		Test_Log("Blocks: %zu Total capacity: %zu", ar.block_count, arena_total_capacity(&ar));
 		// printf("Base: %p Num0: %p Max: %p\n", ar.head->data, num0, ar.head->data + ar.head->capacity);
 
-		int* num1 = arena_alloc_aligned(&ar, sizeof(int), alignof(int));
+		int* num1 = arena_alloc_raw(&ar, sizeof(int), alignof(int));
 		Tp(num1 != NULL);
 		*num1 = 420;
 		Tp(ar.block_count == 2);
@@ -31,7 +31,7 @@ int test_arena(){
 		arena_reset(&ar);
 		Tp(ar.head->offset == 0);
 
-		int* num2 = arena_alloc_aligned(&ar, sizeof(int) * 30, alignof(int));
+		int* num2 = arena_alloc_raw(&ar, sizeof(int) * 30, alignof(int));
 		Tp(num2 != NULL);
 		Tp(ar.block_count == 2);
 		Test_Log("Blocks: %zu Total capacity: %zu", ar.block_count, arena_total_capacity(&ar));
