@@ -17,14 +17,17 @@
 #include <stdlib.h> /* Remove if not using malloc() and free() in the configuration */
 
 /// Configuration //////////////////////////////////////////////////////////////
-// This defines how to ask for x bytes of memory
-#define ARENA_MALLOC(x) malloc((x))
+// Default way for arena to get memory
+static void* arena_default_mem_alloc(void* _, size_t n){
+	(void)_; // Just so the compiler shuts up about it not being used
+	return malloc(n);
+}
 
-// This defines how to free a pointer p
-#define ARENA_FREE(p) free((p))
-
-// Default alignment for arena_alloc
-#define ARENA_DEF_ALIGN (alignof(max_align_t))
+// Default way for arena to release memory
+static void arena_default_mem_free(void* _, void* p){
+	(void)_; // Just so the compiler shuts up about it not being used
+	free(p);
+}
 
 // How much to grow the arena (relative to required size) when making new blocks
 #define ARENA_GROW_FACTOR 1.15
@@ -36,6 +39,9 @@
 /// Declarations ///////////////////////////////////////////////////////////////
 #define byte unsigned char
 
+typedef void* (*ArenaMemAllocProc) (void*, size_t);
+typedef void (*ArenaMemFreeProc) (void*, void*);
+
 struct ArenaBlock {
 	byte* data;
 	size_t offset;
@@ -45,15 +51,39 @@ struct ArenaBlock {
 };
 
 struct ArenaAllocator {
-	size_t block_count;
+	ArenaMemAllocProc mem_alloc;
+	ArenaMemFreeProc mem_free;
 	struct ArenaBlock* head;
 };
 
-struct ArenaAllocator arena_create(size_t capacity);
+/// Creates an arena.
+// Use alloc_proc = NULL and free_proc = NULL to use the default functions from
+// the Configuration section
+struct ArenaAllocator arena_create(ArenaMemAllocProc alloc_proc,
+                                   ArenaMemFreeProc free_proc,
+                                   size_t capacity);
+
+/// Destroys an arena, freeing all blocks.
 void arena_destroy(struct ArenaAllocator* ar);
-void* arena_alloc_raw(struct ArenaAllocator* ar, size_t nbytes, size_t alignment);
+
+/// Allocates a chunk of raw memory of size nbytes, pointer aligned to alignment
+// Will try to grow arena if needed. Returns NULL on failed allocation.
+void* arena_alloc_raw(struct ArenaAllocator* ar,
+                      size_t nbytes,
+                      size_t alignment);
+
+/// Resets arena, marking all blocks as free.
+// Does not release resources back
 void arena_reset(struct ArenaAllocator* ar);
+
+/// Get combined capacity of all memory blocks available in the arena.
 size_t arena_total_capacity(struct ArenaAllocator const* ar);
+
+/// Get how many memory blocks arr in the arena.
+size_t arena_block_count(struct ArenaAllocator const* ar);
+
+/// Push a new block to the arena. Can be used to preemptively reserve space.
+bool arena_push_block(struct ArenaAllocator* ar, size_t capacity);
 
 /// Implementation /////////////////////////////////////////////////////////////
 #ifdef ARENA_IMPLEMENTATION
@@ -80,13 +110,13 @@ align_forward_size(size_t p, size_t a){
 }
 
 static struct ArenaBlock*
-arena_block_create(size_t capacity){
-	struct ArenaBlock *blk = ARENA_MALLOC(sizeof(*blk));
+arena_block_create(struct ArenaAllocator* ar, size_t capacity){
+	struct ArenaBlock *blk = ar->mem_alloc(NULL, sizeof(*blk));
 	if(blk == NULL){ return blk; }
 
-	void* data = ARENA_MALLOC(capacity);
+	void* data = ar->mem_alloc(NULL, capacity);
 	if(data == NULL){
-		ARENA_FREE(blk);
+		ar->mem_free(NULL, blk);
 		return NULL;
 	}
 
@@ -102,30 +132,35 @@ arena_block_create(size_t capacity){
 
 
 struct ArenaAllocator
-arena_create(size_t capacity){
-	struct ArenaAllocator ar = {0};
-	struct ArenaBlock* blk = arena_block_create(capacity);
+arena_create(ArenaMemAllocProc mem_alloc_proc, ArenaMemFreeProc mem_free_proc, size_t capacity){
+	ArenaMemAllocProc alloc_proc = mem_alloc_proc;
+	ArenaMemFreeProc free_proc = mem_free_proc;
 
-	if(blk == NULL){ goto exit; }
+	if(alloc_proc == NULL){
+		alloc_proc = arena_default_mem_alloc;
+	}
+	if(free_proc == NULL){
+		free_proc = arena_default_mem_free;
+	}
 
-	ar = (struct ArenaAllocator){
-		.block_count = 1,
-		.head = blk,
+	struct ArenaAllocator ar = {
+		.mem_alloc = alloc_proc,
+		.mem_free = free_proc,
 	};
+	struct ArenaBlock* blk = arena_block_create(&ar, capacity);
 
-	exit:
+	ar.head = blk;
+
 	return ar;
 }
 
-static bool
+bool
 arena_push_block(struct ArenaAllocator* ar, size_t capacity){
-	struct ArenaBlock *blk = arena_block_create(capacity);
+	struct ArenaBlock *blk = arena_block_create(ar, capacity);
 	if(blk == NULL){ return false; }
 
 	blk->next = ar->head;
 	ar->head = blk;
-
-	ar->block_count += 1;
 
 	return true;
 }
@@ -168,7 +203,7 @@ arena_alloc_raw(struct ArenaAllocator* ar, size_t nbytes, size_t alignment){
 
 	// No block with enough space found, create new one
 	size_t new_cap = align_forward_size(nbytes, alignment);
-	bool ok = arena_push_block(ar, new_cap * ARENA_DEF_ALIGN);
+	bool ok = arena_push_block(ar, new_cap * ARENA_GROW_FACTOR);
 	if(ok){
 		return arena_alloc_raw(ar, nbytes, alignment);
 	} else {
@@ -187,9 +222,9 @@ arena_reset(struct ArenaAllocator* ar){
 }
 
 static void
-arena_block_destroy(struct ArenaBlock* b){
-	ARENA_FREE(b->data);
-	ARENA_FREE(b);
+arena_block_destroy(struct ArenaAllocator* ar, struct ArenaBlock* b){
+	ar->mem_free(NULL, b->data);
+	ar->mem_free(NULL, b);
 }
 
 void
@@ -198,15 +233,28 @@ arena_destroy(struct ArenaAllocator* ar){
 	struct ArenaBlock* next = NULL;
 	while(cur->next != NULL){
 		next = cur->next;
-		arena_block_destroy(cur);
+		arena_block_destroy(ar, cur);
 		cur = next;
 	}
-	arena_block_destroy(cur);
+	arena_block_destroy(ar, cur);
 	ar->head = NULL;
-	ar->block_count = 0;
 }
 
-size_t arena_total_capacity(struct ArenaAllocator const* ar){
+size_t
+arena_block_count(struct ArenaAllocator const* ar){
+	struct ArenaBlock* blk = ar->head;
+	size_t total = 0;
+
+	while(blk != NULL){
+		total += 1;
+		blk = blk->next;
+	}
+
+	return total;
+}
+
+size_t
+arena_total_capacity(struct ArenaAllocator const* ar){
 	struct ArenaBlock* blk = ar->head;
 	size_t total = 0;
 
