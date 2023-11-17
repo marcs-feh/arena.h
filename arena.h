@@ -17,26 +17,28 @@
 #include <stdlib.h> /* Remove if not using malloc() and free() in the configuration */
 
 /// Configuration //////////////////////////////////////////////////////////////
-// Default way for arena to get memory
+
+/// Default way for arena to get memory
 static void* arena_default_mem_alloc(void* _, size_t n){
 	(void)_; // Just so the compiler shuts up about it not being used
 	return malloc(n);
 }
 
-// Default way for arena to release memory
+/// Default way for arena to release memory
 static void arena_default_mem_free(void* _, void* p){
 	(void)_; // Just so the compiler shuts up about it not being used
 	free(p);
 }
 
-// How much to grow the arena (relative to required size) when making new blocks
+/// How much to grow the arena (relative to required size) when making new blocks
 #define ARENA_GROW_FACTOR 1.15
 
-// Helper macro, you can safely remove it
+/// Helper macro, you can safely remove it if you don't want to use it
 #define arena_alloc(ar_ptr, T, n) \
 	arena_alloc_raw((ar_ptr), (sizeof(T) * (n)), alignof(T))
 
 /// Declarations ///////////////////////////////////////////////////////////////
+
 #define byte unsigned char
 
 typedef void* (*ArenaMemAllocProc) (void*, size_t);
@@ -83,6 +85,7 @@ size_t arena_total_capacity(struct ArenaAllocator const* ar);
 size_t arena_block_count(struct ArenaAllocator const* ar);
 
 /// Push a new block to the arena. Can be used to preemptively reserve space.
+// Returns false on failure.
 bool arena_push_block(struct ArenaAllocator* ar, size_t capacity);
 
 /// Implementation /////////////////////////////////////////////////////////////
@@ -271,20 +274,21 @@ arena_total_capacity(struct ArenaAllocator const* ar){
 #endif /* ARENA_IMPLEMENTATION */
 #endif /* Include guard */
 
-
-// Copyright 2023 marcs-feh
-// 
-// Permission is hereby granted, free of charge, to any person obtaining a copy of
-// this software and associated documentation files (the “Software”), to deal in
-// the Software without restriction, including without limitation the rights to
-// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-// of the Software, and to permit persons to whom the Software is furnished to do
-// so.
-// 
-// THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+/*
+	Copyright 2023 marcs-feh
+	
+	Permission is hereby granted, free of charge, to any person obtaining a copy of
+	this software and associated documentation files (the “Software”), to deal in
+	the Software without restriction, including without limitation the rights to
+	use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+	of the Software, and to permit persons to whom the Software is furnished to do
+	so.
+	
+	THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+	SOFTWARE.
+*/
