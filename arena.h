@@ -1,10 +1,10 @@
 /* See end of file for LICENSE information */
 
 /// Arena.h
-// This file implements a memory arena that dynamically grows using the provided
-// ARENA_MALLOC and ARENA_FREE functions. You cannot free individual allocations
-// but you can free the entire arena all at once. To use this library you must
-// #define ARENA_IMPLEMENTATION **once** in any C file of your choosing.
+// This file implements a memory arena that dynamically grows using provided
+// functions. You cannot free individual allocations but you can free the entire
+// arena all at once. To use this library you must #define ARENA_IMPLEMENTATION
+// **once** in any C file of your choosing.
 
 #ifndef _arena_h_included_
 #define _arena_h_included_
