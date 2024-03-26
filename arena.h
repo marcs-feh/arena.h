@@ -14,28 +14,29 @@
 #include <stdalign.h>
 #include <stdbool.h>
 
-#include <stdlib.h> /* Remove if not using malloc() and free() in the configuration */
+// Remove if not using malloc() and free() in the configuration
+#include <stdlib.h>
 
 /// Configuration //////////////////////////////////////////////////////////////
 
-/// Default way for arena to get memory
-static void* arena_default_mem_alloc(void* _, size_t n){
-	(void)_; // Just so the compiler shuts up about it not being used
+// Default way for arena to get memory
+static void* arena_default_mem_alloc(void* impl_data, size_t n){
+	(void)impl_data; // Just so the compiler shuts up about it not being used
 	return malloc(n);
 }
 
-/// Default way for arena to release memory
-static void arena_default_mem_free(void* _, void* p){
-	(void)_; // Just so the compiler shuts up about it not being used
+// Default way for arena to release memory
+static void arena_default_mem_free(void* impl_data, void* p){
+	(void)impl_data; // Just so the compiler shuts up about it not being used
 	free(p);
 }
 
 /// How much to grow the arena (relative to required size) when making new blocks
-#define ARENA_GROW_FACTOR 1.15
+#define ARENA_GROW_FACTOR 1.25
 
 /// Helper macro, you can safely remove it if you don't want to use it
 #define arena_alloc(ar_ptr, T, n) \
-	arena_alloc_raw((ar_ptr), (sizeof(T) * (n)), alignof(T))
+	(T *)(arena_alloc_raw((ar_ptr), (sizeof(T) * (n)), alignof(T)))
 
 /// Declarations ///////////////////////////////////////////////////////////////
 
@@ -58,33 +59,33 @@ struct ArenaAllocator {
 	struct ArenaBlock* head;
 };
 
-/// Creates an arena.
+// Creates an arena.
 // Use alloc_proc = NULL and free_proc = NULL to use the default functions from
 // the Configuration section
 struct ArenaAllocator arena_create(ArenaMemAllocProc alloc_proc,
                                    ArenaMemFreeProc free_proc,
                                    size_t capacity);
 
-/// Destroys an arena, freeing all blocks.
+// Destroys an arena, freeing all blocks.
 void arena_destroy(struct ArenaAllocator* ar);
 
-/// Allocates a chunk of raw memory of size nbytes, pointer aligned to alignment
+// Allocates a chunk of raw memory of size nbytes, pointer aligned to alignment
 // Will try to grow arena if needed. Returns NULL on failed allocation.
 void* arena_alloc_raw(struct ArenaAllocator* ar,
                       size_t nbytes,
                       size_t alignment);
 
-/// Resets arena, marking all blocks as free.
+// Resets arena, marking all blocks as free.
 // Does not release resources back
 void arena_reset(struct ArenaAllocator* ar);
 
-/// Get combined capacity of all memory blocks available in the arena.
+// Get combined capacity of all memory blocks available in the arena.
 size_t arena_total_capacity(struct ArenaAllocator const* ar);
 
-/// Get how many memory blocks arr in the arena.
+// Get how many memory blocks are in the arena.
 size_t arena_block_count(struct ArenaAllocator const* ar);
 
-/// Push a new block to the arena. Can be used to preemptively reserve space.
+// Push a new block to the arena. Can be used to preemptively reserve space.
 // Returns false on failure.
 bool arena_push_block(struct ArenaAllocator* ar, size_t capacity);
 
