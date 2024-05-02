@@ -62,18 +62,14 @@ struct ArenaAllocator {
 // Creates an arena.
 // Use alloc_proc = NULL and free_proc = NULL to use the default functions from
 // the Configuration section
-struct ArenaAllocator arena_create(ArenaMemAllocProc alloc_proc,
-                                   ArenaMemFreeProc free_proc,
-                                   size_t capacity);
+struct ArenaAllocator arena_create(ArenaMemAllocProc alloc_proc, ArenaMemFreeProc free_proc, size_t capacity);
 
 // Destroys an arena, freeing all blocks.
 void arena_destroy(struct ArenaAllocator* ar);
 
 // Allocates a chunk of raw memory of size nbytes, pointer aligned to alignment
 // Will try to grow arena if needed. Returns NULL on failed allocation.
-void* arena_alloc_raw(struct ArenaAllocator* ar,
-                      size_t nbytes,
-                      size_t alignment);
+void* arena_alloc_raw(struct ArenaAllocator* ar, size_t nbytes, size_t alignment);
 
 // Resets arena, marking all blocks as free.
 // Does not release resources back
@@ -133,7 +129,6 @@ arena_block_create(struct ArenaAllocator* ar, size_t capacity){
 
 	return blk;
 }
-
 
 struct ArenaAllocator
 arena_create(ArenaMemAllocProc mem_alloc_proc, ArenaMemFreeProc mem_free_proc, size_t capacity){
